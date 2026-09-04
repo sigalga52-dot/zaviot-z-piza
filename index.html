@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>פיצריית הזוויות: מאסטר הפיצה</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Rubik', sans-serif;
+            background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .neon-box {
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.5), inset 0 0 10px rgba(249, 115, 22, 0.2);
+            border: 2px solid rgba(251, 146, 60, 0.4);
+            background: rgba(0, 0, 0, 0.55);
+        }
+
+        .btn-neon {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-neon:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .btn-neon:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+        
+        .btn-neon:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #sound-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop-in { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        /* Match game styles */
+        .match-item {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .match-item.selected {
+            border-color: #fb923c;
+            background: rgba(251, 146, 60, 0.2);
+            box-shadow: 0 0 10px rgba(251, 146, 60, 0.5);
+        }
+        .match-item.matched {
+            border-color: #4ade80;
+            background: rgba(74,222,128,0.2);
+            cursor: default;
+            opacity: 0.7;
+        }
+        .match-item.error {
+            border-color: #ef4444;
+            background: rgba(239,68,68,0.2);
+            animation: shake 0.4s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .blink-text { animation: blink 1s linear infinite; }
+
+        .match-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .match-col {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .col-title {
+            text-align: center;
+            font-weight: 800;
+            color: #fb923c;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        /* SVG hints styling */
+        .hint-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: rgba(249, 115, 22, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- Confetti Layer -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <button id="sound-toggle" onclick="toggleSound()">
+        🔊 סאונד פועל
+    </button>
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="screen active max-w-md w-full flex-col gap-6 items-center text-center pop-in neon-box p-8 rounded-3xl">
+        <div class="text-6xl mb-2">🍕</div>
+        <h1 class="text-4xl md:text-5xl font-black bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent mb-4 leading-tight">
+            ברוכים הבאים<br>לפיצריית הזוויות!
+        </h1>
+        <p class="text-lg text-gray-200 mb-4">בואו נלמד סוגי זוויות דרך משולשי פיצה טעימים.</p>
+        
+        <div class="w-full relative">
+            <label for="student-name" class="block text-right text-orange-300 font-bold mb-2">איך קוראים לכם?</label>
+            <input type="text" id="student-name" class="w-full bg-white/10 border-2 border-orange-400/50 rounded-xl p-3 text-white text-xl focus:outline-none focus:border-orange-400 mb-2" placeholder="הקלידו את שמכם כאן...">
+            <div id="name-error" class="hidden text-red-400 text-sm mb-4 text-right font-bold transition-opacity">אנא הכניסו את שמכם כדי להתחיל :)</div>
+        </div>
+        
+        <button onclick="startGame()" class="btn-neon text-white border-2 border-orange-500 bg-orange-500/30 hover:bg-orange-500/50 py-3 px-10 rounded-full font-bold text-2xl w-full shadow-[0_0_15px_rgba(249,115,22,0.4)]">
+            בואו נאפה פיצות!
+        </button>
+    </div>
+
+    <!-- REMINDER & MATCH 1 SCREEN -->
+    <div id="reminder-screen-1" class="screen max-w-4xl w-full flex-col gap-6 items-center text-center pop-in neon-box p-8 rounded-3xl">
+        <h2 class="text-3xl font-black text-orange-400">תזכורת: זוויות בפיצה! 📐</h2>
+        
+        <!-- The 4 angles display -->
+        <div class="grid grid-cols-4 gap-4 w-full mb-4">
+            <div class="hint-card border-cyan-400/30">
+                <div id="hint-svg-acute" class="w-16 h-16"></div>
+                <div class="text-sm font-bold mt-2 text-cyan-300">זווית חדה</div>
+            </div>
+            <div class="hint-card border-green-400/30">
+                <div id="hint-svg-right" class="w-16 h-16"></div>
+                <div class="text-sm font-bold mt-2 text-green-300">זווית ישרה</div>
+            </div>
+            <div class="hint-card border-yellow-400/30">
+                <div id="hint-svg-obtuse" class="w-16 h-16"></div>
+                <div class="text-sm font-bold mt-2 text-yellow-300">זווית קהה</div>
+            </div>
+            <div class="hint-card border-pink-400/30">
+                <div id="hint-svg-straight" class="w-16 h-16"></div>
+                <div class="text-sm font-bold mt-2 text-pink-300">זווית שטוחה</div>
+            </div>
+        </div>
+
+        <h3 class="text-xl font-bold mb-2">בואו נתרגל! התאימו את המונח להגדרה ולשרטוט:</h3>
+        <p class="text-sm text-gray-300 mb-2">לחצו על פריט מכל עמודה כדי ליצור שלישייה תואמת (מונח + הגדרה + פיצה).</p>
+        
+        <div class="match-grid" dir="rtl">
+            <div class="match-col">
+                <div class="col-title">מונח</div>
+                <div id="match1-terms" class="flex flex-col gap-3"></div>
+            </div>
+            <div class="match-col">
+                <div class="col-title">הגדרה (מעלות)</div>
+                <div id="match1-defs" class="flex flex-col gap-3"></div>
+            </div>
+            <div class="match-col">
+                <div class="col-title">שרטוט</div>
+                <div id="match1-visuals" class="flex flex-col gap-3"></div>
+            </div>
+        </div>
+        
+        <button id="next-to-match2-btn" onclick="goToMatch2()" class="hidden btn-neon text-white border-2 border-orange-500 bg-orange-500/30 hover:bg-orange-500/50 py-2 px-8 rounded-full font-bold text-xl mt-4">
+            המשך לשלב הבא!
+        </button>
+    </div>
+
+    <!-- MATCH 2 SCREEN -->
+    <div id="reminder-screen-2" class="screen max-w-4xl w-full flex-col gap-6 items-center text-center pop-in neon-box p-8 rounded-3xl">
+        <h2 class="text-3xl font-black text-yellow-400">עוד קצת אימון!</h2>
+        <h3 class="text-xl font-bold mb-2">הפעם בסדר שונה - התאימו את השלישיות:</h3>
+        <p class="text-sm text-gray-300 mb-2">לחצו על פריט מכל עמודה כדי ליצור שלישייה תואמת.</p>
+        
+        <div class="match-grid" dir="rtl">
+             <div class="match-col">
+                <div class="col-title">הגדרה (מעלות)</div>
+                <div id="match2-defs" class="flex flex-col gap-3"></div>
+            </div>
+            <div class="match-col">
+                <div class="col-title">שרטוט</div>
+                <div id="match2-visuals" class="flex flex-col gap-3"></div>
+            </div>
+             <div class="match-col">
+                <div class="col-title">מונח</div>
+                <div id="match2-terms" class="flex flex-col gap-3"></div>
+            </div>
+        </div>
+        
+        <button id="start-game-actual-btn" onclick="startActualGame()" class="hidden btn-neon text-white border-2 border-red-500 bg-red-500/30 hover:bg-red-500/50 py-3 px-10 rounded-full font-bold text-2xl mt-4 shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+            התחילו במשחק!
+        </button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="screen max-w-2xl w-full flex-col gap-4">
+        
+        <!-- Header & Progress -->
+        <header class="flex justify-between items-center bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg shadow-orange-500/20">
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent" id="game-title">
+                    שלב השאלות: מאסטר הפיצה
+                </h1>
+                <p class="text-sm text-gray-300 mt-1" id="question-counter">שאלה 1 מתוך 10</p>
+            </div>
+            <div class="text-center">
+                <div class="text-xs text-orange-300 uppercase font-bold tracking-wider">ניקוד</div>
+                <div class="text-2xl font-black text-white" id="score-display">0</div>
+            </div>
+        </header>
+
+        <!-- Main Stage (Canvas) -->
+        <main class="w-full bg-black/50 rounded-3xl p-4 neon-box flex flex-col items-center relative border border-orange-500/30">
+            <!-- Feedback Overlay -->
+            <div id="feedback-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/85 rounded-3xl opacity-0 pointer-events-none transition-opacity duration-300 z-50 p-6 text-center">
+                <h2 id="feedback-text" class="text-3xl md:text-5xl font-black text-white transform scale-50 transition-transform duration-300 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] leading-tight relative z-50">
+                    מושלם!
+                </h2>
+                
+                <!-- Visual feedback for failure -->
+                <div id="feedback-visuals" class="hidden flex gap-4 mt-4 items-center justify-center bg-black/60 p-4 rounded-xl border border-white/20 relative z-50">
+                    <img id="feedback-canvas-img" class="w-32 h-32 object-contain rounded-lg border border-white/20 bg-black/40">
+                    <div class="text-4xl font-black text-orange-400">=</div>
+                    <div id="feedback-svg-container" class="w-24 h-24 flex items-center justify-center border border-white/20 rounded-lg bg-white/10 p-2"></div>
+                </div>
+
+                <p id="feedback-subtext" class="text-xl text-yellow-300 mt-4 opacity-0 transition-opacity duration-300 relative z-50"></p>
+            </div>
+
+            <p class="text-lg md:text-xl font-semibold mb-4 text-center" id="question-text">
+                איזו זווית יוצר משולש הפיצה החתוך?<br>
+                <span class="text-sm text-orange-300 font-normal mt-1 block">תוכלו להיעזר במד זווית אם תרצו!</span>
+            </p>
+            
+            <div class="relative bg-gradient-to-b from-[#4a1010]/80 to-[#270606]/90 rounded-2xl border border-white/10 w-full max-w-[400px] aspect-square overflow-hidden shadow-inner flex items-center justify-center">
+                <!-- Checkered table cloth background hint -->
+                <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 20px, #000 20px, #000 40px);"></div>
+                <canvas id="stage-canvas" class="w-full h-full relative z-10"></canvas>
+            </div>
+        </main>
+
+        <!-- Answer Buttons -->
+        <div class="grid grid-cols-2 gap-3" id="answer-buttons">
+            <button onclick="checkAnswer('acute')" class="btn-neon text-cyan-400 border-2 border-cyan-400 bg-cyan-400/10 hover:bg-cyan-400/20 py-3 rounded-2xl font-bold text-lg md:text-xl shadow-[0_0_10px_rgba(34,211,238,0.3)]">זווית חדה</button>
+            <button onclick="checkAnswer('right')" class="btn-neon text-green-400 border-2 border-green-400 bg-green-400/10 hover:bg-green-400/20 py-3 rounded-2xl font-bold text-lg md:text-xl shadow-[0_0_10px_rgba(74,222,128,0.3)]">זווית ישרה</button>
+            <button onclick="checkAnswer('obtuse')" class="btn-neon text-yellow-400 border-2 border-yellow-400 bg-yellow-400/10 hover:bg-yellow-400/20 py-3 rounded-2xl font-bold text-lg md:text-xl shadow-[0_0_10px_rgba(250,204,21,0.3)]">זווית קהה</button>
+            <button onclick="checkAnswer('straight')" class="btn-neon text-pink-400 border-2 border-pink-400 bg-pink-400/10 hover:bg-pink-400/20 py-3 rounded-2xl font-bold text-lg md:text-xl shadow-[0_0_10px_rgba(244,114,182,0.3)]">זווית שטוחה</button>
+        </div>
+        
+        <!-- Visual Hints Mini -->
+        <div class="grid grid-cols-4 gap-2 mt-2">
+            <div class="hint-card border-cyan-400/30">
+                <div id="mini-hint-acute" class="w-10 h-10"></div>
+                <div class="text-xs font-bold mt-1 text-cyan-300">חדה</div>
+                <div class="text-[10px] text-gray-400">פחות מ-90°</div>
+            </div>
+            <div class="hint-card border-green-400/30">
+                <div id="mini-hint-right" class="w-10 h-10"></div>
+                <div class="text-xs font-bold mt-1 text-green-300">ישרה</div>
+                <div class="text-[10px] text-gray-400">בדיוק 90°</div>
+            </div>
+            <div class="hint-card border-yellow-400/30">
+                <div id="mini-hint-obtuse" class="w-10 h-10"></div>
+                <div class="text-xs font-bold mt-1 text-yellow-300">קהה</div>
+                <div class="text-[10px] text-gray-400">יותר מ-90°</div>
+            </div>
+            <div class="hint-card border-pink-400/30">
+                <div id="mini-hint-straight" class="w-10 h-10"></div>
+                <div class="text-xs font-bold mt-1 text-pink-300">שטוחה</div>
+                <div class="text-[10px] text-gray-400">בדיוק 180°</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- END SCREEN -->
+    <div id="end-screen" class="screen max-w-3xl w-full flex-col gap-6 items-center text-center pop-in neon-box p-6 md:p-8 rounded-3xl">
+        <div class="text-6xl mb-2">👨‍🍳🍕</div>
+        <h1 class="text-3xl md:text-5xl font-black text-orange-400 mb-2" id="end-title">כל הכבוד!</h1>
+        
+        <h2 class="text-2xl font-bold text-white mb-4" id="end-message"></h2>
+
+        <div class="flex flex-wrap justify-center gap-6 w-full mb-4 bg-white/5 p-4 rounded-xl">
+            <div>
+                <div class="text-sm text-gray-400">זמן התחלה</div>
+                <div class="text-lg font-bold" id="start-time-display">--:--</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-400">זמן כולל</div>
+                <div class="text-lg font-bold" id="total-time-display">--:--</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-400">ניקוד סופי</div>
+                <div class="text-lg font-bold text-yellow-300" id="final-score">0</div>
+            </div>
+        </div>
+
+        <h3 class="text-xl font-bold mb-2">סיכום התשובות שלכם:</h3>
+        <div class="w-full overflow-x-auto">
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th>שאלה</th>
+                        <th>זווית</th>
+                        <th>ניסיון 1</th>
+                        <th>ניסיון 2</th>
+                        <th>הסבר שניתן</th>
+                    </tr>
+                </thead>
+                <tbody id="results-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="blink-text text-2xl md:text-3xl font-black text-red-400 mt-4 drop-shadow-[0_0_10px_rgba(248,113,113,0.8)]">
+            שלחו למורה צילום מסך! 📸
+        </div>
+
+        <button onclick="location.reload()" class="mt-6 btn-neon text-white border-2 border-orange-500 bg-orange-500/30 hover:bg-orange-500/50 py-3 px-10 rounded-full font-bold text-xl">
+            שחקו שוב!
+        </button>
+    </div>
+
+    <script>
+        // --- Pizza SVG Assets for the UI Hints ---
+        const svgDict = {
+            'acute': `<svg width="100%" height="100%" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="#fde047" opacity="0.15" stroke="#b45309" stroke-width="2"/>
+                        <path d="M 50 50 L 90 50 A 40 40 0 0 0 78.2 21.7 Z" fill="#facc15" stroke="#b45309" stroke-width="3"/>
+                        <path d="M 65 50 A 15 15 0 0 0 60.6 39.4" stroke="#ef4444" stroke-width="3" fill="none"/>
+                      </svg>`,
+            'right': `<svg width="100%" height="100%" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="#fde047" opacity="0.15" stroke="#b45309" stroke-width="2"/>
+                        <path d="M 50 50 L 90 50 A 40 40 0 0 0 50 10 Z" fill="#facc15" stroke="#b45309" stroke-width="3"/>
+                        <path d="M 65 50 L 65 35 L 50 35" stroke="#ef4444" stroke-width="3" fill="none"/>
+                      </svg>`,
+            'obtuse': `<svg width="100%" height="100%" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="#fde047" opacity="0.15" stroke="#b45309" stroke-width="2"/>
+                        <path d="M 50 50 L 90 50 A 40 40 0 0 0 21.7 21.7 Z" fill="#facc15" stroke="#b45309" stroke-width="3"/>
+                        <path d="M 65 50 A 15 15 0 0 0 39.4 39.4" stroke="#ef4444" stroke-width="3" fill="none"/>
+                       </svg>`,
+            'straight': `<svg width="100%" height="100%" viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r="40" fill="#fde047" opacity="0.15" stroke="#b45309" stroke-width="2"/>
+                          <path d="M 50 50 L 90 50 A 40 40 0 0 0 10 50 Z" fill="#facc15" stroke="#b45309" stroke-width="3"/>
+                          <path d="M 65 50 A 15 15 0 0 0 35 50" stroke="#ef4444" stroke-width="3" fill="none"/>
+                         </svg>`
+        };
+
+        // Inject SVGs into DOM
+        document.getElementById('hint-svg-acute').innerHTML = svgDict['acute'];
+        document.getElementById('hint-svg-right').innerHTML = svgDict['right'];
+        document.getElementById('hint-svg-obtuse').innerHTML = svgDict['obtuse'];
+        document.getElementById('hint-svg-straight').innerHTML = svgDict['straight'];
+        document.getElementById('mini-hint-acute').innerHTML = svgDict['acute'];
+        document.getElementById('mini-hint-right').innerHTML = svgDict['right'];
+        document.getElementById('mini-hint-obtuse').innerHTML = svgDict['obtuse'];
+        document.getElementById('mini-hint-straight').innerHTML = svgDict['straight'];
+
+        // --- State Variables ---
+        const TOTAL_QUESTIONS = 10;
+        let studentName = "";
+        let currentQuestion = 1;
+        let score = 0;
+        let currentAngleType = '';
+        let lastAngleType = '';
+        let currentDegrees = 0;
+        let currentTries = 0;
+        let startTime = null;
+        let questionResults = [];
+        
+        let isBouncing = false;
+        let pizzaRotation = 0; // Random rotation for each question
+        let toppings = []; // Array to store generated toppings for the current pizza
+
+        const angleNames = {
+            'acute': 'חדה',
+            'right': 'ישרה',
+            'obtuse': 'קהה',
+            'straight': 'שטוחה'
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let soundEnabled = true;
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-toggle').innerText = soundEnabled ? '🔊 סאונד פועל' : '🔇 סאונד כבוי';
+        }
+
+        function playBeep(freq, type, duration, vol) {
+            if (!soundEnabled) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playMatchSuccess() {
+            playBeep(440, 'sine', 0.1, 0.3); 
+            setTimeout(() => playBeep(554, 'sine', 0.1, 0.3), 100); 
+            setTimeout(() => playBeep(659, 'sine', 0.2, 0.3), 200); 
+        }
+
+        function playSuccessChime() {
+             if (!soundEnabled) return;
+             playBeep(523.25, 'sine', 0.15, 0.3); 
+             setTimeout(() => playBeep(659.25, 'sine', 0.15, 0.3), 100); 
+             setTimeout(() => playBeep(783.99, 'sine', 0.15, 0.3), 200); 
+             setTimeout(() => playBeep(1046.50, 'sine', 0.3, 0.3), 300); 
+        }
+
+        function playErrorSound() {
+            if (!soundEnabled) return;
+            playBeep(200, 'triangle', 0.2, 0.3);
+            setTimeout(() => playBeep(150, 'triangle', 0.3, 0.3), 150);
+        }
+
+        const canvas = document.getElementById('stage-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Flow Control ---
+        function startGame() {
+            const nameInput = document.getElementById('student-name').value.trim();
+            const errorMsg = document.getElementById('name-error');
+            
+            if(!nameInput) {
+                if(errorMsg) errorMsg.classList.remove('hidden');
+                return;
+            }
+            if(errorMsg) errorMsg.classList.add('hidden');
+            
+            studentName = nameInput;
+            startTime = new Date();
+            
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('reminder-screen-1').classList.add('active');
+            
+            initMatchGame1();
+        }
+
+        // --- Matching Games Logic ---
+        let match1State = { selectedTerm: null, selectedDef: null, selectedVisual: null, matchedCount: 0 };
+        let match2State = { selectedTerm: null, selectedDef: null, selectedVisual: null, matchedCount: 0 };
+
+        const termsBase = [
+            { id: 'acute', text: 'זווית חדה' },
+            { id: 'right', text: 'זווית ישרה' },
+            { id: 'obtuse', text: 'זווית קהה' },
+            { id: 'straight', text: 'זווית שטוחה' }
+        ];
+        const defsBase = [
+            { id: 'right', text: 'בדיוק 90°' },
+            { id: 'straight', text: 'בדיוק 180°' },
+            { id: 'acute', text: 'קטנה מ-90°' },
+            { id: 'obtuse', text: 'גדולה מ-90°' }
+        ];
+        const visualsBase = [
+             { id: 'obtuse', text: svgDict['obtuse'] },
+             { id: 'acute', text: svgDict['acute'] },
+             { id: 'straight', text: svgDict['straight'] },
+             { id: 'right', text: svgDict['right'] }
+        ];
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function initMatchGame1() {
+            renderMatchBoard3Cols('match1-terms', 'match1-defs', 'match1-visuals', 
+                                  shuffle([...termsBase]), shuffle([...defsBase]), shuffle([...visualsBase]), 
+                                  match1State, () => {
+                document.getElementById('next-to-match2-btn').classList.remove('hidden');
+            });
+        }
+
+        function goToMatch2() {
+            document.getElementById('reminder-screen-1').classList.remove('active');
+            document.getElementById('reminder-screen-2').classList.add('active');
+            initMatchGame2();
+        }
+
+        function initMatchGame2() {
+            renderMatchBoard3Cols('match2-terms', 'match2-defs', 'match2-visuals', 
+                                  shuffle([...termsBase]), shuffle([...defsBase]), shuffle([...visualsBase]), 
+                                  match2State, () => {
+                document.getElementById('start-game-actual-btn').classList.remove('hidden');
+            });
+        }
+
+        function renderMatchBoard3Cols(termsId, defsId, visualsId, termsData, defsData, visualsData, stateObj, onComplete) {
+            const termsContainer = document.getElementById(termsId);
+            const defsContainer = document.getElementById(defsId);
+            const visualsContainer = document.getElementById(visualsId);
+            
+            termsContainer.innerHTML = '';
+            defsContainer.innerHTML = '';
+            visualsContainer.innerHTML = '';
+            
+            const handleSelection = (itemType, itemEl, itemId) => {
+                if (itemEl.classList.contains('matched')) return;
+                
+                let container;
+                if (itemType === 'term') container = termsContainer;
+                else if (itemType === 'def') container = defsContainer;
+                else container = visualsContainer;
+
+                Array.from(container.children).forEach(child => {
+                    if(!child.classList.contains('matched')) child.classList.remove('selected');
+                });
+                
+                itemEl.classList.add('selected');
+                
+                if (itemType === 'term') stateObj.selectedTerm = { id: itemId, el: itemEl };
+                else if (itemType === 'def') stateObj.selectedDef = { id: itemId, el: itemEl };
+                else stateObj.selectedVisual = { id: itemId, el: itemEl };
+                
+                if (stateObj.selectedTerm && stateObj.selectedDef && stateObj.selectedVisual) {
+                    if (stateObj.selectedTerm.id === stateObj.selectedDef.id && stateObj.selectedDef.id === stateObj.selectedVisual.id) {
+                        playMatchSuccess();
+                        
+                        stateObj.selectedTerm.el.classList.remove('selected');
+                        stateObj.selectedTerm.el.classList.add('matched');
+                        stateObj.selectedDef.el.classList.remove('selected');
+                        stateObj.selectedDef.el.classList.add('matched');
+                        stateObj.selectedVisual.el.classList.remove('selected');
+                        stateObj.selectedVisual.el.classList.add('matched');
+                        
+                        stateObj.matchedCount++;
+                        
+                        stateObj.selectedTerm = null;
+                        stateObj.selectedDef = null;
+                        stateObj.selectedVisual = null;
+                        
+                        if (stateObj.matchedCount === 4) {
+                            firePepperonis(); 
+                            onComplete();
+                        }
+                    } else {
+                        playErrorSound();
+                        stateObj.selectedTerm.el.classList.add('error');
+                        stateObj.selectedDef.el.classList.add('error');
+                        stateObj.selectedVisual.el.classList.add('error');
+                        
+                        setTimeout(() => {
+                            if(stateObj.selectedTerm) { stateObj.selectedTerm.el.classList.remove('error', 'selected'); }
+                            if(stateObj.selectedDef) { stateObj.selectedDef.el.classList.remove('error', 'selected'); }
+                            if(stateObj.selectedVisual) { stateObj.selectedVisual.el.classList.remove('error', 'selected'); }
+                            stateObj.selectedTerm = null;
+                            stateObj.selectedDef = null;
+                            stateObj.selectedVisual = null;
+                        }, 500);
+                    }
+                }
+            };
+            
+            termsData.forEach(t => {
+                const el = document.createElement('div');
+                el.className = 'match-item text-lg font-bold text-center h-16 flex items-center justify-center';
+                el.innerText = t.text;
+                el.onclick = () => handleSelection('term', el, t.id);
+                termsContainer.appendChild(el);
+            });
+            
+            defsData.forEach(d => {
+                const el = document.createElement('div');
+                el.className = 'match-item text-lg font-bold text-center h-16 flex items-center justify-center';
+                el.innerText = d.text;
+                el.onclick = () => handleSelection('def', el, d.id);
+                defsContainer.appendChild(el);
+            });
+
+            visualsData.forEach(v => {
+                const el = document.createElement('div');
+                el.className = 'match-item text-lg font-bold text-center h-16 flex items-center justify-center bg-white/5';
+                el.innerHTML = `<div class="w-12 h-12">${v.text}</div>`;
+                el.onclick = () => handleSelection('visual', el, v.id);
+                visualsContainer.appendChild(el);
+            });
+        }
+
+        function startActualGame() {
+            document.getElementById('reminder-screen-2').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            resizeCanvas();
+            loadNextQuestion();
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function loadNextQuestion() {
+            if (currentQuestion > TOTAL_QUESTIONS) {
+                endGame();
+                return;
+            }
+
+            currentTries = 0;
+            document.getElementById('question-counter').innerText = `שאלה ${currentQuestion} מתוך ${TOTAL_QUESTIONS}`;
+            
+            const buttons = document.querySelectorAll('#answer-buttons button');
+            buttons.forEach(btn => btn.disabled = false);
+
+            generatePizzaQuestion();
+        }
+
+        function generatePizzaQuestion() {
+            let types = ['acute', 'right', 'obtuse', 'straight'];
+            
+            if (lastAngleType) {
+                types = types.filter(t => t !== lastAngleType);
+            }
+            
+            currentAngleType = types[Math.floor(Math.random() * types.length)];
+            lastAngleType = currentAngleType;
+            
+            // Randomize rotation for variety
+            pizzaRotation = Math.random() * Math.PI * 2;
+            
+            // Generate toppings for this pizza
+            toppings = [];
+            const numToppings = 20 + Math.random() * 10;
+            for(let i=0; i < numToppings; i++) {
+                let r = Math.random() * 0.75; // keep inside radius
+                let a = Math.random() * Math.PI * 2;
+                let tType = Math.random();
+                let typeName = tType > 0.6 ? 'pepperoni' : (tType > 0.3 ? 'olive' : 'mushroom');
+                toppings.push({r, a, type: typeName, rot: Math.random() * Math.PI * 2});
+            }
+
+            switch (currentAngleType) {
+                case 'acute': currentDegrees = Math.floor(Math.random() * 50) + 30; break;
+                case 'right': currentDegrees = 90; break;
+                case 'obtuse': currentDegrees = Math.floor(Math.random() * 50) + 110; break;
+                case 'straight': currentDegrees = 180; break;
+            }
+        }
+
+        // --- PIZZA DRAWING LOGIC ---
+        function drawToppingsList(baseX, baseY, pizzaRadius, offset) {
+            toppings.forEach(t => {
+                let tx = baseX + Math.cos(t.a) * (t.r * pizzaRadius) + offset.x;
+                let ty = baseY + Math.sin(t.a) * (t.r * pizzaRadius) + offset.y;
+                let size = pizzaRadius * 0.12;
+
+                ctx.save();
+                ctx.translate(tx, ty);
+                ctx.rotate(t.rot);
+                
+                if (t.type === 'pepperoni') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, size, 0, Math.PI*2);
+                    ctx.fillStyle = '#dc2626'; // red
+                    ctx.fill();
+                    ctx.strokeStyle = '#991b1b';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                } else if (t.type === 'olive') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, size * 0.7, 0, Math.PI*2);
+                    ctx.fillStyle = '#000000';
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(0, 0, size * 0.25, 0, Math.PI*2);
+                    ctx.fillStyle = '#facc15'; // cheese hole
+                    ctx.fill();
+                } else { // mushroom
+                    ctx.fillStyle = '#f3f4f6';
+                    ctx.strokeStyle = '#9ca3af';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    // Stem
+                    ctx.rect(-size*0.3, 0, size*0.6, size*0.8);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Cap
+                    ctx.beginPath();
+                    ctx.arc(0, 0, size*0.8, Math.PI, 0);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+                ctx.restore();
+            });
+        }
+
+        function drawPizzaSector(cx, cy, radius, start, end, drawToppingsFlag, isSlice) {
+            // Shadow
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetX = 5;
+            ctx.shadowOffsetY = 5;
+            
+            // Crust
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius, start, end);
+            ctx.closePath();
+            ctx.fillStyle = '#b45309'; // dark golden rod crust
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#78350f'; // darker crust edge
+            ctx.stroke();
+            ctx.restore();
+
+            // Cheese
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius * 0.86, start, end);
+            ctx.closePath();
+            ctx.fillStyle = '#facc15'; // rich yellow
+            ctx.fill();
+
+            // Toppings (clipped to cheese)
+            if (drawToppingsFlag) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, radius * 0.86, start, end);
+                ctx.clip();
+                
+                // We need to offset toppings by the same amount the sector is offset from the true center
+                let trueCx = canvas.width / 2;
+                let trueCy = canvas.height / 2;
+                let offsetX = cx - trueCx;
+                let offsetY = cy - trueCy;
+                
+                drawToppingsList(trueCx, trueCy, radius, {x: offsetX, y: offsetY});
+                ctx.restore();
+            }
+        }
+
+        function drawAngleArcForPizza(cx, cy, start, end, degrees, scale) {
+            ctx.beginPath();
+            const r = 35 * scale;
+            ctx.arc(cx, cy, r, start, end);
+            ctx.strokeStyle = '#ef4444'; // Red arc
+            ctx.lineWidth = 5 * scale;
+            ctx.stroke();
+
+            if (degrees === 90) {
+                // Draw square for 90 deg
+                const sq = 18 * scale;
+                const p1x = cx + Math.cos(start) * sq;
+                const p1y = cy + Math.sin(start) * sq;
+                const p3x = cx + Math.cos(end) * sq;
+                const p3y = cy + Math.sin(end) * sq;
+                const p2x = cx + Math.cos(start)*sq + Math.cos(end)*sq;
+                const p2y = cy + Math.sin(start)*sq + Math.sin(end)*sq;
+
+                ctx.beginPath();
+                ctx.moveTo(p1x, p1y);
+                ctx.lineTo(p2x, p2y);
+                ctx.lineTo(p3x, p3y);
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 4 * scale;
+                ctx.stroke();
+            }
+        }
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const scale = canvas.width / 300;
+            const R = 110 * scale; 
+
+            // Calculate angles
+            let startRads = pizzaRotation;
+            let endRads = startRads + (currentDegrees * Math.PI / 180);
+
+            // Animate pulling the slice out
+            let midRads = (startRads + endRads) / 2;
+            let basePull = 15 * scale;
+            let pullOut = basePull;
+            if (isBouncing) {
+                 pullOut = basePull + Math.abs(Math.sin(Date.now()/150)) * 15 * scale;
+            }
+
+            let sliceCx = cx + Math.cos(midRads) * pullOut;
+            let sliceCy = cy + Math.sin(midRads) * pullOut;
+
+            // Draw rest of pizza (from endRads to startRads + 360)
+            drawPizzaSector(cx, cy, R, endRads, startRads + Math.PI*2, true, false);
+
+            // Draw the slice (from startRads to endRads)
+            drawPizzaSector(sliceCx, sliceCy, R, startRads, endRads, true, true);
+
+            // Draw angle indicator on the pulled out slice
+            drawAngleArcForPizza(sliceCx, sliceCy, startRads, endRads, currentDegrees, scale);
+        }
+
+        function getDynamicFeedbackSVG(degrees, type) {
+            let rads = degrees * Math.PI / 180;
+            let x2 = 50 + 40 * Math.cos(rads);
+            let y2 = 50 + 40 * Math.sin(rads);
+
+            let largeArc = degrees > 180 ? 1 : 0; 
+            
+            // For a straight line we need 2 arcs or just a straight line back
+            let path = `M 50 50 L 90 50 A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`;
+
+            let arcX = 50 + 15 * Math.cos(rads);
+            let arcY = 50 + 15 * Math.sin(rads);
+            let angleArc = `M 65 50 A 15 15 0 0 1 ${arcX} ${arcY}`;
+
+            if (type === 'right') {
+                angleArc = `M 65 50 L 65 65 L 50 65`; // Note: Assuming start is 0 and end is 90(downwards)
+            }
+
+            return `<svg width="100%" height="100%" viewBox="0 0 100 100">
+                <path d="${path}" fill="#facc15" stroke="#b45309" stroke-width="3"/>
+                <path d="${angleArc}" fill="none" stroke="#ef4444" stroke-width="3"/>
+            </svg>`;
+        }
+
+        function checkAnswer(selectedType) {
+            const overlay = document.getElementById('feedback-overlay');
+            const feedbackText = document.getElementById('feedback-text');
+            const feedbackSub = document.getElementById('feedback-subtext');
+            
+            const isCorrect = (selectedType === currentAngleType);
+
+            if (isCorrect) {
+                const points = (currentTries === 0) ? 10 : 7;
+                score += points; 
+                document.getElementById('score-display').innerText = score;
+                
+                recordResult(currentTries === 0, currentTries === 1, false);
+                
+                firePepperonis(); 
+                
+                if (currentTries === 0) {
+                     playSuccessChime(); 
+                } else {
+                     playMatchSuccess(); 
+                }
+                
+                feedbackText.innerText = `כל הכבוד ${studentName}! 🌟`;
+                feedbackText.className = "text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-emerald-500 transform scale-100 transition-transform duration-300 drop-shadow-[0_5px_15px_rgba(16,185,129,0.5)]";
+                feedbackSub.innerText = "";
+                
+                showOverlay(overlay, feedbackText, feedbackSub, 2000, () => {
+                    currentQuestion++;
+                    loadNextQuestion();
+                });
+
+            } else {
+                currentTries++;
+                
+                if (currentTries === 1) {
+                    feedbackText.innerText = "כמעט... 🍕";
+                    feedbackText.className = "text-4xl font-black text-white transform scale-100 transition-transform duration-300";
+                    feedbackSub.innerText = "הסתכלו למטה על סוגי הזוויות ועל ההבדלים ביניהן, נסו להתאים את משולש הפיצה לאחת מהן.";
+                    feedbackSub.classList.remove('opacity-0');
+                    
+                    showOverlay(overlay, feedbackText, feedbackSub, 3500);
+                } else {
+                    recordResult(false, false, true);
+                    
+                    let explanation = "";
+                    switch(currentAngleType) {
+                        case 'acute': explanation = "זווית חדה קטנה מ-90°. משולש פיצה דק."; break;
+                        case 'right': explanation = "זווית ישרה היא בדיוק 90°. רבע פיצה בדיוק."; break;
+                        case 'obtuse': explanation = "זווית קהה גדולה מ-90°. משולש פיצה ענק ורחב."; break;
+                        case 'straight': explanation = "זווית שטוחה היא בדיוק 180°. חצי פיצה שלמה."; break;
+                    }
+
+                    feedbackText.innerText = `${studentName}, התשובה היא: זווית ${angleNames[currentAngleType]}`;
+                    feedbackText.className = "text-2xl md:text-3xl font-black text-yellow-300 transform scale-100 transition-transform duration-300 relative z-20";
+                    
+                    const fVis = document.getElementById('feedback-visuals');
+                    const fImg = document.getElementById('feedback-canvas-img');
+                    const fSvg = document.getElementById('feedback-svg-container');
+                    
+                    fImg.src = canvas.toDataURL(); 
+                    fSvg.innerHTML = getDynamicFeedbackSVG(currentDegrees, currentAngleType); 
+                    fVis.classList.remove('hidden');
+
+                    feedbackSub.innerText = explanation;
+                    feedbackSub.className = "text-xl text-yellow-300 mt-4 transition-opacity duration-300 relative z-20";
+                    feedbackSub.classList.remove('opacity-0');
+                    
+                    const buttons = document.querySelectorAll('#answer-buttons button');
+                    buttons.forEach(btn => btn.disabled = true);
+                    
+                    showOverlay(overlay, feedbackText, feedbackSub, 6000, () => {
+                        fVis.classList.add('hidden'); 
+                        currentQuestion++;
+                        loadNextQuestion();
+                    });
+                }
+            }
+        }
+
+        function showOverlay(overlay, textEl, subEl, duration, callback) {
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+            
+            setTimeout(() => {
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+                textEl.classList.replace('scale-100', 'scale-50');
+                subEl.classList.add('opacity-0');
+                if (callback) callback();
+            }, duration);
+        }
+
+        function recordResult(firstTry, secondTry, failed) {
+            questionResults.push({
+                num: currentQuestion,
+                angle: angleNames[currentAngleType],
+                first: firstTry ? '✅' : '-',
+                second: secondTry ? '✅' : '-',
+                fail: failed ? '❌' : '-'
+            });
+        }
+
+        // --- End Screen ---
+        function endGame() {
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('end-screen').classList.add('active');
+            
+            document.getElementById('end-title').innerText = `סיימנו, ${studentName}!`;
+            document.getElementById('final-score').innerText = score;
+            
+            const percentage = (score / (TOTAL_QUESTIONS * 10)) * 100;
+            const msgEl = document.getElementById('end-message');
+            
+            if (percentage >= 80) {
+                msgEl.innerText = "אתם מאסטרים אמיתיים של פיצה וזוויות! 🎉";
+                msgEl.className = "text-2xl font-bold text-green-400 mb-4";
+            } else {
+                 msgEl.innerText = "כדאי לשחק שוב! 💪";
+                 msgEl.className = "text-2xl font-bold text-yellow-400 mb-4";
+            }
+            
+            const endTime = new Date();
+            const startStr = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+            document.getElementById('start-time-display').innerText = startStr;
+            
+            const diffMs = endTime - startTime;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffSecs = Math.floor((diffMs % 60000) / 1000);
+            document.getElementById('total-time-display').innerText = `${diffMins}:${diffSecs.toString().padStart(2, '0')} דקות`;
+
+            const tbody = document.getElementById('results-body');
+            tbody.innerHTML = '';
+            questionResults.forEach(res => {
+                let rowColor = res.first === '✅' ? 'bg-green-900/40' : (res.second === '✅' ? 'bg-yellow-900/40' : 'bg-red-900/40');
+                tbody.innerHTML += `
+                    <tr class="${rowColor}">
+                        <td>${res.num}</td>
+                        <td>${res.angle}</td>
+                        <td>${res.first}</td>
+                        <td>${res.second}</td>
+                        <td>${res.fail}</td>
+                    </tr>
+                `;
+            });
+            
+            firePepperonis();
+        }
+
+        // --- Pepperoni Confetti System ---
+        const heartsCanvas = document.getElementById('confetti-canvas');
+        const hCtx = heartsCanvas.getContext('2d');
+        let heartsList = [];
+
+        function resizeHeartsCanvas() {
+            heartsCanvas.width = window.innerWidth;
+            heartsCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeHeartsCanvas);
+        resizeHeartsCanvas();
+
+        function firePepperonis() {
+            isBouncing = true; 
+            const colors = ['#dc2626', '#b91c1c', '#991b1b']; // Red pepperoni colors
+            
+            for (let i = 0; i < 50; i++) {
+                heartsList.push({
+                    x: heartsCanvas.width / 2 + (Math.random() * 100 - 50),
+                    y: heartsCanvas.height / 2,
+                    size: Math.random() * 10 + 8,
+                    dx: (Math.random() - 0.5) * 12,
+                    dy: (Math.random() * -12) - 5,
+                    alpha: 1,
+                    rot: Math.random() * Math.PI,
+                    rotSpeed: (Math.random() - 0.5) * 0.2,
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                });
+            }
+
+            setTimeout(() => {
+                isBouncing = false;
+            }, 1500);
+        }
+
+        function animateHearts() {
+            hCtx.clearRect(0, 0, heartsCanvas.width, heartsCanvas.height);
+            
+            for (let i = heartsList.length - 1; i >= 0; i--) {
+                let h = heartsList[i];
+                h.x += h.dx;
+                h.y += h.dy;
+                h.dy += 0.3; // Gravity
+                h.rot += h.rotSpeed;
+                h.alpha -= 0.01; 
+                
+                if (h.alpha <= 0 || h.y > heartsCanvas.height) {
+                    heartsList.splice(i, 1);
+                    continue;
+                }
+                
+                hCtx.save();
+                hCtx.globalAlpha = h.alpha;
+                hCtx.translate(h.x, h.y);
+                hCtx.rotate(h.rot);
+                
+                // Draw pepperoni
+                hCtx.beginPath();
+                hCtx.arc(0, 0, h.size, 0, Math.PI * 2);
+                hCtx.fillStyle = h.color;
+                hCtx.fill();
+                hCtx.strokeStyle = 'rgba(0,0,0,0.2)';
+                hCtx.lineWidth = 1;
+                hCtx.stroke();
+                
+                // Mini spots on pepperoni
+                hCtx.beginPath();
+                hCtx.arc(-h.size*0.3, -h.size*0.3, h.size*0.2, 0, Math.PI*2);
+                hCtx.fillStyle = 'rgba(127, 29, 29, 0.5)';
+                hCtx.fill();
+
+                hCtx.restore();
+            }
+        }
+
+        // --- Master Animation Loop ---
+        function appLoop() {
+            requestAnimationFrame(appLoop);
+            if (document.getElementById('game-screen').classList.contains('active')) {
+                drawScene();
+            }
+            animateHearts();
+        }
+        
+        requestAnimationFrame(appLoop);
+
+    </script>
+</body>
+</html>
